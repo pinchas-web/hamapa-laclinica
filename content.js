@@ -4,6 +4,9 @@
 (function () {
   const CFG = window.SITE_CONFIG || {};
   const LIVE = Boolean(CFG.supabaseUrl && CFG.supabaseKey);
+  // באוויר בלי Supabase: כל פנייה נשלחת לוואטסאפ של בעל העסק, ואזור הניהול (הדגמה) לא מוצג למבקרים
+  const LOCAL = location.protocol === 'file:' || /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname);
+  const WA_MODE = !LIVE && !LOCAL;
   const STORE = { content: 'lazy-site-content', leads: 'lazy-site-leads', seeded: 'lazy-site-seeded' };
   const THEME_VARS = { 'theme.ink': '--ink', 'theme.blue': '--blue', 'theme.yellow': '--yellow', 'theme.teal': '--teal' };
 
@@ -121,6 +124,17 @@
     if (!res.ok) throw new Error('lead ' + res.status);
   }
 
+  // הפנייה נשלחת לוואטסאפ של העסק, עם כל הפרטים והמפה
+  function sendWhatsApp(lead) {
+    const to = intl(current('contact.whatsapp') || current('contact.phone'));
+    const lines = [`היי פנחס, אני ${lead.name}.`, `טלפון: ${lead.phone}`];
+    if (lead.service) lines.push(`מתעניין ב: ${lead.service}`);
+    if (lead.message) lines.push('', lead.message.slice(0, 1500));
+    const url = `https://wa.me/${to}?text=${encodeURIComponent(lines.join('\n'))}`;
+    const w = window.open(url, '_blank', 'noopener');
+    if (!w) location.href = url;
+  }
+
   // ---------- טופס הפניות ----------
   function setupForm() {
     document.querySelectorAll('#lead-form, form[data-lead]').forEach(setupOneForm);
@@ -148,8 +162,16 @@
       say('שולח...');
       try {
         await addLead(lead);
+        if (WA_MODE) sendWhatsApp(lead);
         form.querySelectorAll('.lead__field, .lead__submit, .lead__msg').forEach(el => { el.hidden = true; });
-        form.querySelector('.lead__done').hidden = false;
+        const done = form.querySelector('.lead__done');
+        done.hidden = false;
+        if (WA_MODE && !done.querySelector('.lead__wa')) {
+          const note = document.createElement('small');
+          note.className = 'lead__wa';
+          note.textContent = 'נפתח וואטסאפ עם ההודעה. רק ללחוץ שליחה, וזה אצל פנחס.';
+          done.append(note);
+        }
         form.dispatchEvent(new CustomEvent('lead:sent', { bubbles: true, detail: lead }));
       } catch {
         button.disabled = false;
@@ -165,7 +187,8 @@
     apply(state);
     setupForm();
 
-    if (new URLSearchParams(location.search).has('admin')) {
+    if (WA_MODE) document.querySelectorAll('.footer__admin').forEach(a => { a.hidden = true; });
+    if (!WA_MODE && new URLSearchParams(location.search).has('admin')) {
       const css = document.createElement('link');
       css.rel = 'stylesheet';
       css.href = 'admin/admin.css';

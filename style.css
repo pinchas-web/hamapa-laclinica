@@ -460,3 +460,7 @@ mark { color: inherit; background: linear-gradient(transparent 58%, color-mix(in
   #my-map { position: absolute; inset: 0 0 auto 0; box-shadow: none; border: 2px solid #C9A86A; }
   .nav-wrap, .wa-float { display: none; }
 }
+
+/* באוויר בלי Supabase: הודעת וואטסאפ אחרי שליחה */
+.lead__wa { display: block; margin-top: .7rem; font-size: 1rem; opacity: .85; }
+.footer__admin[hidden] { display: none; }
